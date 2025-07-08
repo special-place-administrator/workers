@@ -162,6 +162,27 @@ class ChatLogAnalyzer:
     def record_request_time(self, model_disp: str):
         self.last_request_times[model_disp] = datetime.now()
 
+    def translate_text_with_llm(self, text: str, target_lang: str, model_name: str) -> tuple[bool, str]:
+        """Translate text to target_lang using the given model."""
+        if not self.api_key:
+            return False, "API key not set."
+        if not text.strip():
+            return False, "No text provided for translation."
+        try:
+            model = genai.GenerativeModel(model_name)
+            prompt = (
+                f"Translate the following text to {target_lang}. "
+                "Return only the translated text without any additional commentary.\n\n"
+                f"---\n{text}\n---"
+            )
+            resp = model.generate_content(prompt)
+            translated = getattr(resp, "text", "").strip()
+            if not translated:
+                return False, "Empty translation result."
+            return True, translated
+        except Exception as e:
+            return False, f"Translation error: {e}"
+
     def get_analysis_stream(self,
             start_dt: str,
             end_dt:   str,
