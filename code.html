@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Chat Analyzer</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --surface: #1f2937;
+            --surface-light: #374151;
+            --text: #f9fafb;
+            --text-secondary: #d1d5db;
+            --border: #60a5fa;
+            --success: #10b981;
+            --error: #ef4444;
+            --warning: #f59e0b;
+        }
+        body { background-color: var(--surface); color: var(--text); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .person-btn { transition: all 0.3s ease; border: 2px solid transparent; }
+        .person-btn.selected { background-color: var(--border) !important; color: #000 !important; border-color: var(--border); }
+        .tab-active { background-color: var(--primary); color: white; }
+        .tab-inactive { background-color: var(--surface-light); color: var(--text-secondary); }
+        .log-container { max-height: 200px; overflow-y: auto; background-color: var(--surface-light); border: 1px solid var(--border); }
+        .dropdown-container { position: relative; }
+        .dropdown-content { max-height: 300px; overflow-y: auto; background-color: var(--surface-light); border: 1px solid var(--border); border-radius: 0.375rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        .dropdown-item { padding: 0.5rem 1rem; cursor: pointer; transition: background-color 0.2s; }
+        .dropdown-item:hover { background-color: var(--primary); }
+        .report-display {
+            background-color: white; color: #000; padding: 2rem; border-radius: 0.5rem;
+            line-height: 1.6;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        .report-display h1 { font-weight: bold; font-size: 1.5rem; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #333;}
+        .report-display h2 { font-weight: bold; font-size: 1.25rem; margin-top: 1.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid #ccc; }
+        .report-display h3 { font-weight: bold; font-size: 1.1rem; margin-top: 1rem; }
+        .report-display ul { list-style-type: disc; padding-left: 2rem; margin-top: 0.5rem; }
+        .report-display li { margin-bottom: 0.5rem; }
+        .report-display p { margin-bottom: 0.75rem; }
+        .report-display strong { font-weight: 600; }
+        
+        .graph-container { margin-top: 2rem; padding-top: 1.5rem; border-top: 2px solid #333; }
+        .bar-row { display: grid; grid-template-columns: 150px 1fr; align-items: center; gap: 1rem; margin-bottom: 1.25rem; }
+        .bar-cluster { display: flex; flex-direction: column; gap: 0.25rem; }
+        .bar { display: flex; align-items: center; height: 1.5rem; border-radius: 3px; color: white; font-size: 0.85em; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); padding-left: 0.5rem; transition: width 0.8s ease-out; }
+
+        .loading-spinner { display: inline-block; width: 1rem; height: 1rem; border: 2px solid #f3f4f6; border-radius: 50%; border-top-color: var(--primary); animation: spin 1s ease-in-out infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .input-field, select.input-field { appearance: none; background-color: var(--surface-light); border: 1px solid var(--border); color: var(--text); border-radius: 0.375rem; padding: 0.5rem 0.75rem; width: 100%; }
+        .input-field:disabled { background-color: #4b5563; cursor: not-allowed; }
+        select.input-field { background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; padding-right: 2.5rem; }
+        select.input-field option { background-color: var(--surface-light); color: var(--text); }
+        .section-header { font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem; color: var(--text); border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; }
+        .team-pool { min-height: 80px; border: 2px dashed var(--border); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; background-color: var(--surface-light); display: flex; flex-wrap: wrap; gap: 0.5rem; align-content: flex-start; }
+        .alert { position: fixed; top: 20px; right: 20px; z-index: 1000; padding: 1rem 1.5rem; border-radius: 0.375rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 400px; display: flex; align-items: center; }
+        .alert-success { background-color: rgba(16, 185, 129, 0.9); border: 1px solid var(--success); color: white; }
+        .alert-error { background-color: rgba(239, 68, 68, 0.9); border: 1px solid var(--error); color: white; }
+        .alert-warning { background-color: rgba(245, 158, 11, 0.9); border: 1px solid var(--warning); color: white; }
+        .file-upload { border: 2px dashed var(--border); border-radius: 0.5rem; padding: 2rem; text-align: center; background-color: var(--surface-light); cursor: pointer; transition: all 0.3s ease; }
+        .file-upload.dragover { background-color: var(--primary); }
+        .hidden { display: none !important; }
+        .fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+        .fade-out { animation: fadeOut 0.5s ease-in forwards; }
+
+        textarea, .textarea-field {
+            background-color: var(--surface-light) !important;
+            color: var(--text) !important;
+            border: 1px solid var(--border);
+            border-radius: 0.375rem;
+            padding: 0.75rem;
+            width: 100%;
+            resize: vertical;
+            min-height: 120px;
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator,
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+    <div class="container mx-auto px-4 py-6">
+        <div class="text-center mb-8"><h1 class="text-3xl font-bold text-white mb-2"><i class="fas fa-comments mr-3"></i>WhatsApp Chat Analyzer</h1><p class="text-gray-300">Advanced AI-powered chat analysis and reporting</p></div>
+        <div class="flex mb-6 bg-gray-800 rounded-lg p-1"><button id="tab-setup" class="flex-1 py-3 px-4 text-center font-medium rounded-md transition-colors tab-active"><i class="fas fa-cog mr-2"></i>1. Setup</button><button id="tab-analysis" class="flex-1 py-3 px-4 text-center font-medium rounded-md transition-colors tab-inactive"><i class="fas fa-chart-line mr-2"></i>2. Analysis</button><button id="tab-results" class="flex-1 py-3 px-4 text-center font-medium rounded-md transition-colors tab-inactive"><i class="fas fa-file-alt mr-2"></i>3. Results</button></div>
+        <div id="content-setup" class="tab-content">
+            <div class="mb-8"><h2 class="section-header"><i class="fas fa-key mr-2"></i>1. Configure API</h2><div class="grid grid-cols-1 md:grid-cols-3 gap-4"><div class="md:col-span-2"><label class="block text-sm font-medium mb-2">API Key</label><div class="relative"><input type="password" id="api-key" class="input-field pr-10" placeholder="Enter your Google AI API key"><button type="button" id="toggle-api-key" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"><i class="fas fa-eye"></i></button></div></div><div><label class="block text-sm font-medium mb-2">API Tier</label><select id="api-tier" class="input-field"><option value="free">Free Tier</option><option value="tier1">Tier 1</option></select></div></div><button id="save-api-key" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-md transition-colors font-medium"><i class="fas fa-save mr-2"></i>Save & Fetch Models</button></div>
+            <div class="mb-8"><h2 class="section-header"><i class="fas fa-upload mr-2"></i>2. Load & Parse Chat Log</h2><div class="mb-4"><div id="file-upload" class="file-upload"><i class="fas fa-cloud-upload-alt text-4xl mb-4 text-gray-400"></i><p class="text-lg font-medium mb-2">Drop your WhatsApp chat log here</p><p class="text-sm text-gray-400">or click to select a .txt file</p><input type="file" id="chat-file" accept=".txt" class="hidden"></div><div id="file-status" class="mt-2 text-sm text-gray-400"></div></div><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="block text-sm font-medium mb-2">Parser Model</label><div class="dropdown-container"><button id="parser-model-btn" class="input-field text-left flex justify-between items-center w-full" disabled><span>Select a model</span><i class="fas fa-chevron-down"></i></button><div id="parser-model-dropdown" class="dropdown-content mt-1 hidden absolute w-full z-10"></div></div></div><div class="flex items-end"><button id="parse-persons" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-md transition-colors mr-2 font-medium" disabled><i class="fas fa-play mr-2"></i>Parse Persons</button><div id="parsing-progress" class="hidden items-center gap-2"><button id="stop-parsing" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md transition-colors font-medium"><i class="fas fa-stop"></i></button><span id="parsing-timer" class="text-sm text-gray-200 font-mono ml-2">0.0s</span></div></div></div></div>
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6"><div class="lg:col-span-3"><h2 class="section-header"><i class="fas fa-users mr-2"></i>3. Assign Teams</h2><p class="text-sm text-gray-400 mb-4">Select persons from the 'Unassigned' pool, then use an assignment button.</p><div class="flex flex-wrap gap-2 mb-4"><button id="assign-customer" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md transition-colors" disabled><i class="fas fa-user-plus mr-2"></i>Assign  Customer</button><button id="assign-support" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors" disabled><i class="fas fa-user-cog mr-2"></i>Assign  IT Support</button><button id="unassign-persons" class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-md transition-colors" disabled><i class="fas fa-user-minus mr-2"></i>Unassign</button></div><div class="mb-4"><h3 class="text-sm font-medium mb-2 text-gray-300">Unassigned Persons</h3><div id="unassigned-persons-pool" class="team-pool"><p class="text-sm text-gray-400 italic">Load a chat log and parse persons to see them here.</p></div></div><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><h3 class="text-sm font-medium mb-2 text-purple-300"><i class="fas fa-user mr-2"></i>Customer Team</h3><div id="customer-team-pool" class="team-pool"></div></div><div><h3 class="text-sm font-medium mb-2 text-blue-300"><i class="fas fa-user-cog mr-2"></i>IT Support Team</h3><div id="support-team-pool" class="team-pool"></div></div></div></div><div class="lg:col-span-1"><h2 class="section-header"><i class="fas fa-calendar mr-2"></i>4. Date Range</h2><div class="space-y-4"><div><label class="block text-sm font-medium mb-2">Start Date</label><input type="date" id="start-date" class="input-field"></div><div><label class="block text-sm font-medium mb-2">Start Time</label><input type="time" id="start-time" class="input-field"></div><div><label class="block text-sm font-medium mb-2">End Date</label><input type="date" id="end-date" class="input-field"></div><div><label class="block text-sm font-medium mb-2">End Time</label><input type="time" id="end-time" class="input-field"></div></div></div></div>
+        </div>
+        <div id="content-analysis" class="tab-content hidden"><div class="grid grid-cols-1 lg:grid-cols-3 gap-6"><div class="lg:col-span-1"><h2 class="section-header"><i class="fas fa-book mr-2"></i>Prompt Library</h2><div class="flex gap-2 mb-4"><button id="add-prompt" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md transition-colors"><i class="fas fa-plus mr-2"></i>Add New</button><button id="import-prompts" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"><i class="fas fa-file-import mr-2"></i>Import</button><button id="export-prompts" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md transition-colors"><i class="fas fa-file-export mr-2"></i>Export</button></div><div id="prompt-list" class="space-y-2 max-h-96 overflow-y-auto pr-2"></div></div><div class="lg:col-span-2"><h2 class="section-header"><i class="fas fa-edit mr-2"></i>Prompt Editor</h2><div class="space-y-4"><div><label class="block text-sm font-medium mb-2">Prompt Name</label><input type="text" id="prompt-name" class="input-field" placeholder="Enter prompt name"></div><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="block text-sm font-medium mb-2">Analysis Model</label><div class="dropdown-container"><button id="analysis-model-btn" class="input-field text-left flex justify-between items-center w-full" disabled><span>Select a model</span><i class="fas fa-chevron-down"></i></button><div id="analysis-model-dropdown" class="dropdown-content mt-1 hidden absolute w-full z-10"></div></div></div><div><label class="block text-sm font-medium mb-2">Language</label><select id="language" class="input-field"><option>English</option><option>Spanish</option><option>French</option><option>German</option><option>Chinese</option><option>Japanese</option><option>Russian</option><option>Arabic</option></select></div></div><div><label class="block text-sm font-medium mb-2">Base Instructions (System Prompt)</label><textarea id="base-instructions" class="textarea-field" placeholder="Enter system instructions..."></textarea></div><div><label class="block text-sm font-medium mb-2">User Query</label><textarea id="user-query" class="textarea-field" placeholder="Enter user query..."></textarea></div><div class="flex justify-between items-center"><div class="flex gap-2"><button id="save-prompt" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-md transition-colors font-medium"><i class="fas fa-save mr-2"></i>Save Prompt</button><button id="delete-prompt" class="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-md transition-colors font-medium" disabled><i class="fas fa-trash mr-2"></i>Delete Prompt</button></div><div class="flex items-center gap-2 text-sm"><input type="checkbox" id="include-graph" class="h-4 w-4 rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-500" checked><label for="include-graph">Include Statistics Graph</label></div></div><div class="border-t border-gray-700 pt-4 mt-4"><div class="flex items-center gap-4"><button id="run-analysis" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-md transition-colors font-medium text-lg"><i class="fas fa-play mr-2"></i>Run Analysis</button><div id="analysis-progress" class="hidden items-center"><button id="stop-analysis" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md transition-colors font-medium"><i class="fas fa-stop"></i></button><div class="loading-spinner ml-4"></div><span id="analysis-status-text" class="text-gray-300 ml-3">Sending to model...</span><span id="analysis-timer" class="text-gray-200 font-mono font-bold ml-3">0.0s</span></div></div></div></div></div></div></div>
+        <div id="content-results" class="tab-content hidden"><div class="flex justify-start items-center mb-4 gap-4"><div id="export-controls" class="flex gap-2"><button id="copy-results" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors"><i class="fas fa-copy mr-2"></i>Copy as Text</button><button id="save-results" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md transition-colors"><i class="fas fa-download mr-2"></i>Save As...</button></div><div class="flex gap-2 items-center"><label for="export-format" class="text-sm">Format:</label><select id="export-format" class="input-field w-32 bg-gray-700"><option value="docx">.docx</option><option value="txt">.txt</option><option value="html">.html</option></select></div><div class="flex gap-2 items-center"><label for="font-select" class="text-sm">Font:</label><select id="font-select" class="input-field w-40 bg-gray-700"><option value="'Arial', sans-serif">Arial</option><option value="'Times New Roman', serif">Times New Roman</option><option value="'Georgia', serif">Georgia</option><option value="'Verdana', sans-serif">Verdana</option></select></div></div><div id="results-display" class="report-display min-h-[400px]"><p class="text-center text-gray-500 italic">Analysis results will appear here...</p></div></div>
+        <div class="mt-8"><h2 class="section-header"><i class="fas fa-terminal mr-2"></i>Live Log</h2><div id="live-log" class="log-container p-4 text-sm font-mono leading-relaxed"><div class="text-gray-400">[System] Application initialized. Please enter your API Key to begin.</div></div></div>
+    </div>
+    <input type="file" id="import-file" accept=".json" class="hidden">
+    
+    <script type="module">
+        import { GoogleGenerativeAI } from "https://esm.run/@google/generative-ai";
+        import * as docx from "https://unpkg.com/docx@8.2.2/build/index.js";
+        import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
+        import { toPng } from 'https://esm.run/html-to-image';
+
+        const dom = { tabs: { setup: document.getElementById('tab-setup'), analysis: document.getElementById('tab-analysis'), results: document.getElementById('tab-results') }, content: { setup: document.getElementById('content-setup'), analysis: document.getElementById('content-analysis'), results: document.getElementById('content-results') }, apiKey: { input: document.getElementById('api-key'), toggleBtn: document.getElementById('toggle-api-key'), saveBtn: document.getElementById('save-api-key'), tierSelect: document.getElementById('api-tier') }, chat: { fileUpload: document.getElementById('file-upload'), fileInput: document.getElementById('chat-file'), fileStatus: document.getElementById('file-status'), parserModelBtn: document.getElementById('parser-model-btn'), parserModelDropdown: document.getElementById('parser-model-dropdown'), parseBtn: document.getElementById('parse-persons'), parsingProgress: document.getElementById('parsing-progress'), stopParseBtn: document.getElementById('stop-parsing'), parsingTimer: document.getElementById('parsing-timer') }, teams: { unassignedPool: document.getElementById('unassigned-persons-pool'), customerPool: document.getElementById('customer-team-pool'), supportPool: document.getElementById('support-team-pool'), assignCustomerBtn: document.getElementById('assign-customer'), assignSupportBtn: document.getElementById('assign-support'), unassignBtn: document.getElementById('unassign-persons') }, date: { start: document.getElementById('start-date'), startTime: document.getElementById('start-time'), end: document.getElementById('end-date'), endTime: document.getElementById('end-time') }, prompts: { list: document.getElementById('prompt-list'), addBtn: document.getElementById('add-prompt'), importBtn: document.getElementById('import-prompts'), exportBtn: document.getElementById('export-prompts'), importFile: document.getElementById('import-file'), name: document.getElementById('prompt-name'), language: document.getElementById('language'), baseInstructions: document.getElementById('base-instructions'), userQuery: document.getElementById('user-query'), saveBtn: document.getElementById('save-prompt'), deleteBtn: document.getElementById('delete-prompt') }, analysis: { modelBtn: document.getElementById('analysis-model-btn'), modelDropdown: document.getElementById('analysis-model-dropdown'), runBtn: document.getElementById('run-analysis'), stopBtn: document.getElementById('stop-analysis'), progress: document.getElementById('analysis-progress'), statusText: document.getElementById('analysis-status-text'), timer: document.getElementById('analysis-timer'), graphCheckbox: document.getElementById('include-graph') }, results: { display: document.getElementById('results-display'), exportControls: document.getElementById('export-controls'), copyBtn: document.getElementById('copy-results'), saveBtn: document.getElementById('save-results'), exportFormat: document.getElementById('export-format'), fontSelect: document.getElementById('font-select') }, liveLog: document.getElementById('live-log'), };
+        const state = { apiKey: '', apiTier: 'free', genAI: null, models: [], chatContent: '', chatFilename: '', persons: [], selectedPersons: new Set(), customerTeam: [], supportTeam: [], prompts: [], selectedPromptId: null, isParsing: false, isAnalyzing: false, reportData: null, abortController: null };
+        const RATE_LIMITS = { free: { 'gemini-1.5-flash-latest': 15, 'gemini-1.5-pro-latest': 2, default: 15 }, tier1: { 'gemini-1.5-flash-latest': 1000, 'gemini-1.5-pro-latest': 10, default: 100 } };
+        let lastRequestTimes = {};
+
+        function logMessage(message, type = 'info') { const timestamp = new Date().toLocaleTimeString(); const icons = { info: '', success: '', warning: '', error: '' }; const colors = { info: 'text-blue-400', success: 'text-green-400', warning: 'text-yellow-400', error: 'text-red-400' }; const entry = document.createElement('div'); entry.className = `${colors[type]} fade-in`; entry.innerHTML = `<span>[${timestamp}]</span> <span class="mx-1">${icons[type]}</span> <span>${message}</span>`; dom.liveLog.appendChild(entry); dom.liveLog.scrollTop = dom.liveLog.scrollHeight; if (dom.liveLog.children.length > 100) dom.liveLog.removeChild(dom.liveLog.firstChild); }
+        function showAlert(message, type = 'success') { const alert = document.createElement('div'); alert.className = `alert alert-${type} fade-in`; alert.innerHTML = `<span>${message}</span>`; document.body.appendChild(alert); setTimeout(() => { alert.classList.add('fade-out'); alert.addEventListener('animationend', () => alert.remove()); }, 4000); }
+        function isRateLimited(modelName) { const limits = RATE_LIMITS[state.apiTier]; const rpm = limits[modelName] || limits.default; const secPerRequest = 60.0 / rpm; const lastTime = lastRequestTimes[modelName]; if (lastTime) { const elapsed = (Date.now() - lastTime) / 1000; if (elapsed < secPerRequest) return { limited: true, waitTime: secPerRequest - elapsed }; } return { limited: false, waitTime: 0 }; }
+        function recordRequest(modelName) { lastRequestTimes[modelName] = Date.now(); }
+
+        async function fetchDynamicModels() {
+            logMessage('Fetching available models dynamically...', 'info');
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${state.apiKey}`);
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error.message || `API request failed with status ${response.status}`);
+                }
+                const data = await response.json();
+                state.models = data.models.filter(m => m.supportedGenerationMethods.includes('generateContent')).map(m => ({ name: m.name, displayName: m.displayName })).sort((a, b) => a.displayName.localeCompare(b.displayName));
+                logMessage(`Found ${state.models.length} models.`, 'success');
+                updateModelDropdowns();
+            } catch (error) {
+                logMessage(`Failed to fetch models: ${error.message}`, 'error');
+                showAlert('Could not fetch models. Check API Key and connection.', 'error');
+                throw error;
+            }
+        }
+        
+        function switchTab(tabName) { Object.values(dom.tabs).forEach(tab => tab.classList.replace('tab-active', 'tab-inactive')); dom.tabs[tabName].classList.replace('tab-inactive', 'tab-active'); Object.values(dom.content).forEach(content => content.classList.add('hidden')); dom.content[tabName].classList.remove('hidden'); }
+        function updateModelDropdowns() { populateDropdown('parser', state.models); populateDropdown('analysis', state.models); dom.chat.parserModelBtn.disabled = false; dom.analysis.modelBtn.disabled = false; }
+        function populateDropdown(type, items) { const btn = (type === 'parser') ? dom.chat.parserModelBtn : dom.analysis.modelBtn; const dropdown = (type === 'parser') ? dom.chat.parserModelDropdown : dom.analysis.modelDropdown; dropdown.innerHTML = ''; items.forEach(item => { const option = document.createElement('div'); option.className = 'dropdown-item'; option.textContent = item.displayName; option.onclick = () => { btn.querySelector('span').textContent = item.displayName; btn.setAttribute('data-model-name', item.name.replace('models/', '')); dropdown.classList.add('hidden'); if (type === 'parser' && state.chatContent) dom.chat.parseBtn.disabled = false; }; dropdown.appendChild(option); }); }
+        function createPersonButton(person) { const button = document.createElement('button'); button.className = 'person-btn bg-gray-700 text-white px-3 py-1 rounded-md text-sm'; button.textContent = person; if (state.selectedPersons.has(person)) button.classList.add('selected'); button.addEventListener('click', () => { if (state.selectedPersons.has(person)) state.selectedPersons.delete(person); else state.selectedPersons.add(person); renderPersons(); }); return button; }
+        function renderPersons() { dom.teams.unassignedPool.innerHTML = ''; dom.teams.customerPool.innerHTML = ''; dom.teams.supportPool.innerHTML = ''; const unassigned = state.persons.filter(p => !state.customerTeam.includes(p) && !state.supportTeam.includes(p)); if (state.persons.length === 0) { dom.teams.unassignedPool.innerHTML = `<p class="text-sm text-gray-400 italic">Load a chat log and parse persons to see them here.</p>`; } else if (unassigned.length === 0) { dom.teams.unassignedPool.innerHTML = `<p class="text-sm text-gray-400 italic">All persons assigned.</p>`; } unassigned.forEach(p => dom.teams.unassignedPool.appendChild(createPersonButton(p))); state.customerTeam.forEach(p => dom.teams.customerPool.appendChild(createPersonButton(p))); state.supportTeam.forEach(p => dom.teams.supportPool.appendChild(createPersonButton(p))); updateAssignmentButtons(); }
+        function updateAssignmentButtons() { const hasSelection = state.selectedPersons.size > 0; dom.teams.assignCustomerBtn.disabled = !hasSelection; dom.teams.assignSupportBtn.disabled = !hasSelection; dom.teams.unassignBtn.disabled = !hasSelection; }
+        function renderPrompts() { dom.prompts.list.innerHTML = ''; state.prompts.forEach(prompt => { const item = document.createElement('div'); item.className = `prompt-item p-2 rounded-md cursor-pointer transition-colors hover:bg-gray-700 ${prompt.id === state.selectedPromptId ? 'bg-blue-600' : ''}`; const date = new Date(prompt.lastModified).toLocaleDateString('en-CA'); item.innerHTML = `<div class="flex justify-between items-center w-full"><div><i class="fas ${prompt.id === 'default-prompt' ? 'fa-star text-yellow-400' : 'fa-file-alt'} mr-3"></i><span class="font-medium">${prompt.name}</span></div><span class="text-xs text-gray-400">${date}</span></div>`; item.addEventListener('click', () => selectPrompt(prompt.id)); dom.prompts.list.appendChild(item); }); }
+        function selectPrompt(promptId) { logMessage(`Selected prompt: ${state.prompts.find(p=>p.id === promptId)?.name || 'Unknown'}`, 'info'); const prompt = state.prompts.find(p => p.id === promptId); if (!prompt) return; state.selectedPromptId = promptId; dom.prompts.name.value = prompt.name; dom.prompts.language.value = prompt.language; dom.prompts.baseInstructions.value = prompt.baseInstructions; dom.prompts.userQuery.value = prompt.userQuery; dom.prompts.deleteBtn.disabled = (prompt.id === 'default-prompt'); const model = state.models.find(m => m.name.includes(prompt.model)); if (model) { dom.analysis.modelBtn.querySelector('span').textContent = model.displayName; dom.analysis.modelBtn.setAttribute('data-model-name', model.name.replace('models/', '')); } else { dom.analysis.modelBtn.querySelector('span').textContent = 'Select a model'; dom.analysis.modelBtn.removeAttribute('data-model-name'); } renderPrompts(); saveSession(); }
+        function saveSession() { const sessionData = { apiKey: state.apiKey, apiTier: dom.apiKey.tierSelect.value, chatFilename: state.chatFilename, customerTeam: state.customerTeam, supportTeam: state.supportTeam, persons: state.persons, selectedPromptId: state.selectedPromptId, dateRange: { start: dom.date.start.value, startTime: dom.date.startTime.value, end: dom.date.end.value, endTime: dom.date.endTime.value } }; localStorage.setItem('chat_analyzer_session', JSON.stringify(sessionData)); }
+        function loadSession() { const saved = localStorage.getItem('chat_analyzer_session'); if (!saved) return; const session = JSON.parse(saved); dom.apiKey.input.value = session.apiKey || ''; dom.apiKey.tierSelect.value = session.apiTier || 'free'; state.chatFilename = session.chatFilename || ''; if (state.chatFilename) dom.chat.fileStatus.textContent = `Previously loaded: ${state.chatFilename}. Please re-select the file to begin.`; state.customerTeam = session.customerTeam || []; state.supportTeam = session.supportTeam || []; state.persons = session.persons || []; state.selectedPromptId = session.selectedPromptId || null; if(session.dateRange){ dom.date.start.value = session.dateRange.start; dom.date.startTime.value = session.dateRange.startTime; dom.date.end.value = session.dateRange.end; dom.date.endTime.value = session.dateRange.endTime; } renderPersons(); }
+        function savePrompts() { localStorage.setItem('chat_analyzer_prompts', JSON.stringify(state.prompts)); }
+        function loadPrompts() { const saved = localStorage.getItem('chat_analyzer_prompts'); if (saved) { state.prompts = JSON.parse(saved); } else { state.prompts = [{ id: 'default-prompt', name: 'IT Support Analysis Report', model: 'gemini-1.5-flash-latest', language: 'English', baseInstructions: 'You are an expert AI assistant and professional report writer. Your primary task is to meticulously analyze the provided chat log and generate a high-quality, professional report that directly answers the user\'s query below.\n\nYour entire output MUST be a single, clean, valid JSON object. Do not include any other text or markdown.\n\n**Core Task:**\n1. **Analyze and Structure:** Read the user\'s query to understand the desired report. Analyze the entire chat log to find the relevant information. Structure your findings into logical categories (Hardware, Software, Data/Admin, Network, etc.) and specific sub-categories.\n2. **Aggregate and Count:** For the main body of the report, you must aggregate similar issues and count their occurrences. The report should focus on the number of times problems were reported.\n3. **Format as Markdown:** The main body of your report must be placed inside the `report_content` key as a single, well-structured Markdown string. Use `#`, `##`, `###`, `*`, and `**` for formatting.\n4. **Calculate Statistics (if requested):** The user\'s query may contain an additional instruction to provide statistics. If it does, you must perform a second analysis to determine the resolution status of every issue and populate the `statistics` block with the `total` and `resolved` counts for each main category. If statistics are not requested, you must return an empty array: `"statistics": []`.\n\n**JSON Schema (Your output MUST conform to this):**\n{\n  "report_content": "A string containing the full report formatted in Markdown.",\n  "statistics": [\n    { "categoryName": "Hardware", "total": 9, "resolved": 7 },\n    { "categoryName": "Software", "total": 12, "resolved": 8 }\n  ]\n}', userQuery: 'Create a detailed summary of all IT issues, grouped by category and sub-category. For each main category, provide a total count of occurrences. For each issue type, provide its individual occurrence count.', lastModified: new Date().toISOString() }]; } renderPrompts(); }
+        
+        function handleFileUpload(file) {
+            if (!file) { logMessage('File upload cancelled or failed.', 'warning'); showAlert('No file selected.', 'error'); return; }
+            if (!file.name.endsWith('.txt')) { logMessage(`Invalid file type: ${file.name}`, 'error'); showAlert('Please select a valid .txt file', 'error'); return; }
+            const reader = new FileReader();
+            reader.onload = e => {
+                state.chatContent = e.target.result;
+                state.chatFilename = file.name;
+                dom.chat.fileStatus.textContent = `Loaded: ${state.chatFilename}`;
+                if (dom.chat.parserModelBtn.getAttribute('data-model-name')) {
+                    dom.chat.parseBtn.disabled = false;
+                }
+                extractDateRange();
+                saveSession();
+                logMessage(`Chat log loaded: ${file.name}`, 'success');
+            };
+            reader.readAsText(file);
+        }
+
+        function extractDateRange() { const datePattern = /(\d{1,2})\/(\d{1,2})\/(\d{2,4}),\s*(\d{1,2}):(\d{2})/; const dates = []; state.chatContent.split('\n').forEach(line => { const match = line.match(datePattern); if (match) { const [, day, month, year, hour, minute] = match.map(Number); const fullYear = year < 100 ? 2000 + year : year; dates.push(new Date(fullYear, month - 1, day, hour, minute)); } }); if (dates.length > 0) { const startDate = new Date(Math.min(...dates)); const endDate = new Date(Math.max(...dates)); dom.date.start.value = startDate.toISOString().split('T')[0]; dom.date.startTime.value = startDate.toTimeString().split(' ')[0].substring(0, 5); dom.date.end.value = endDate.toISOString().split('T')[0]; dom.date.endTime.value = endDate.toTimeString().split(' ')[0].substring(0, 5); logMessage('Date range automatically extracted from log.', 'info'); } }
+        async function handleParsePersons() { const modelName = dom.chat.parserModelBtn.getAttribute('data-model-name'); if (!state.chatContent || !modelName) { showAlert('Load a chat log and select a parser model first.', 'error'); return; } const rateLimit = isRateLimited(modelName); if (rateLimit.limited) { showAlert(`Rate limit: Wait ${rateLimit.waitTime.toFixed(1)}s`, 'warning'); return; } 
+            state.isParsing = true; 
+            dom.chat.parseBtn.classList.add('hidden');
+            dom.chat.parsingProgress.classList.remove('hidden');
+            let timerInterval;
+            const startTime = Date.now();
+            try {
+                timerInterval = setInterval(() => { dom.chat.parsingTimer.textContent = `${((Date.now() - startTime) / 1000).toFixed(1)}s`; }, 100);
+                logMessage(`Parsing persons with ${modelName}...`, 'info');
+                const model = state.genAI.getGenerativeModel({ model: modelName }); const prompt = `You are a WhatsApp chat log parser. Extract each unique participant name exactly as it appears in the log. List one name per line. Provide only the names, with no extra text, explanations, or formatting.\n\n---BEGIN LOG---\n${state.chatContent.substring(0, 50000)}\n---END LOG---`; const result = await model.generateContent(prompt); if (!state.isParsing) return; const response = await result.response; const text = response.text(); const lines = text.split('\n').map(line => line.trim()).filter(line => line && line.length > 2); state.persons = [...new Set(lines)]; state.selectedPersons.clear(); const newPersonSet = new Set(state.persons); state.customerTeam = state.customerTeam.filter(p => newPersonSet.has(p)); state.supportTeam = state.supportTeam.filter(p => newPersonSet.has(p)); recordRequest(modelName); logMessage(`Found ${state.persons.length} unique persons.`, 'success'); renderPersons(); saveSession(); 
+            } catch (error) { 
+                logMessage(`Parsing failed: ${error.message}`, 'error'); showAlert('Failed to parse persons. The model may have refused the request.', 'error'); renderPersons(); 
+            } finally { 
+                if (timerInterval) clearInterval(timerInterval);
+                state.isParsing = false; 
+                dom.chat.parseBtn.classList.remove('hidden');
+                dom.chat.parsingProgress.classList.add('hidden');
+            } 
+        }
+        
+        async function handleRunAnalysis() {
+            logMessage('Starting analysis...', 'info');
+            state.reportData = null; 
+            state.abortController = new AbortController();
+            const modelName = dom.analysis.modelBtn.getAttribute('data-model-name');
+            if (!state.chatContent || !modelName) { showAlert('Load chat log and select an analysis model.', 'error'); return; }
+            const rateLimit = isRateLimited(modelName);
+            if (rateLimit.limited) { showAlert(`Rate limit: Wait ${rateLimit.waitTime.toFixed(1)}s`, 'warning'); return; }
+            state.isAnalyzing = true;
+            dom.analysis.runBtn.classList.add('hidden');
+            dom.analysis.progress.classList.remove('hidden');
+            let timerInterval;
+            const startTime = Date.now();
+            try {
+                timerInterval = setInterval(() => { dom.analysis.timer.textContent = `${((Date.now() - startTime) / 1000).toFixed(1)}s`; }, 100);
+                const customerList = state.customerTeam.join(', ') || 'None';
+                const supportList = state.supportTeam.join(', ') || 'None';
+                
+                let userQuery = dom.prompts.userQuery.value;
+                if (dom.analysis.graphCheckbox.checked) {
+                    userQuery += "\n\nIMPORTANT: You MUST also provide a `statistics` block in the final JSON. To do this, you must analyze the resolution status of every issue to calculate the `total` and `resolved` counts for each main report category.";
+                }
+
+                const fullInstructions = `${dom.prompts.baseInstructions.value}\n\nTeams - Customer: [${customerList}], IT Support: [${supportList}]`;
+                const prompt = `${fullInstructions}\n\nAnalyze chat from ${dom.date.start.value} to ${dom.date.end.value}.\n\n---\n${state.chatContent}\n---\n\nUser Query:\n${userQuery}`;
+                
+                const model = state.genAI.getGenerativeModel({ model: modelName });
+                const result = await model.generateContent({
+                    contents: [{ role: "user", parts: [{ text: prompt }] }],
+                }, { signal: state.abortController.signal });
+                
+                const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+                logMessage(`Model generated response in ${totalTime}s. Rendering...`, 'info');
+                
+                recordRequest(modelName);
+                switchTab('results'); 
+
+                const response = result.response;
+                const fullResponse = response.text();
+                
+                renderUniversalResponse(fullResponse);
+                logMessage('Analysis and rendering complete.', 'success');
+
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    logMessage('Analysis cancelled by user.', 'warning');
+                    showAlert('Analysis cancelled.', 'warning');
+                } else {
+                    logMessage(`Analysis failed: ${error.message}`, 'error');
+                    showAlert('Analysis failed. An API error may have occurred.', 'error');
+                    switchTab('results');
+                    dom.results.display.innerHTML = `<p class="text-red-400 p-4"><strong>Error:</strong> ${error.message}<br><br>The model may have returned an empty or improperly formatted response. Please check the prompt and try again.</p>`;
+                }
+            } finally {
+                if(timerInterval) clearInterval(timerInterval);
+                state.isAnalyzing = false;
+                state.abortController = null;
+                dom.analysis.runBtn.classList.remove('hidden');
+                dom.analysis.progress.classList.add('hidden');
+            }
+        }
+
+        function renderUniversalResponse(responseText) {
+            const container = dom.results.display;
+            container.style.fontFamily = dom.results.fontSelect.value;
+            container.innerHTML = '';
+
+            function extractJson(str) {
+                const firstBracket = str.indexOf('{');
+                if (firstBracket === -1) return null;
+                const lastBracket = str.lastIndexOf('}');
+                if (lastBracket === -1) return null;
+                return str.substring(firstBracket, lastBracket + 1);
+            }
+
+            const jsonString = extractJson(responseText);
+            let data;
+            
+            if (jsonString) {
+                try {
+                    data = JSON.parse(jsonString);
+                    state.reportData = data; 
+                } catch (e) {
+                    data = null;
+                    state.reportData = null;
+                }
+            } else {
+                 state.reportData = null;
+            }
+            
+            if (data && data.report_content) {
+                logMessage("Rendering response as a structured report.", "info");
+                
+                const cleanedMarkdown = data.report_content.trim();
+                container.innerHTML = marked(cleanedMarkdown);
+                
+                if (data.statistics && dom.analysis.graphCheckbox.checked) {
+                    renderStatisticsGraph(data.statistics);
+                }
+                return;
+            } 
+            
+            logMessage("No valid JSON structure found. Rendering response as plain Markdown.", "info");
+            const cleanedMarkdown = responseText.replace(/^```(markdown|md)?\n?|```$/g, '').trim();
+            if (cleanedMarkdown && cleanedMarkdown.length > 10) {
+                container.innerHTML = marked(cleanedMarkdown);
+            } else {
+                container.innerHTML = '<h1>No Report Generated</h1><p>The model did not return any usable content. Please try simplifying your query or reducing the date range.</p>';
+            }
+        }
+        
+        function renderStatisticsGraph(statsData) {
+            if (!Array.isArray(statsData) || statsData.length === 0) {
+                logMessage("Statistics data is invalid or empty. Skipping graph.", "warning");
+                return;
+            }
+            logMessage("Rendering statistics graph.", "info");
+            const graphContainer = document.createElement('div');
+            graphContainer.className = 'graph-container';
+            graphContainer.id = 'stats-graph-for-export';
+
+            const title = document.createElement('h2');
+            title.textContent = 'Issue Resolution Statistics';
+            graphContainer.appendChild(title);
+            
+            const colors = ['#0d6efd', '#ffc107', '#dc3545', '#198754', '#6f42c1', '#fd7e14'];
+
+            statsData.forEach((category, index) => {
+                const row = document.createElement('div');
+                row.className = 'bar-row';
+
+                const label = document.createElement('div');
+                label.innerHTML = `<strong>${category.categoryName}</strong>`;
+                row.appendChild(label);
+
+                const barCluster = document.createElement('div');
+                barCluster.className = 'bar-cluster';
+
+                const total = category.total || 0;
+                const resolved = category.resolved || 0;
+                const mainColor = colors[index % colors.length];
+                
+                const totalBar = document.createElement('div');
+                totalBar.className = 'bar';
+                totalBar.style.width = '100%';
+                totalBar.style.backgroundColor = mainColor;
+                totalBar.textContent = `${total} Reported`;
+                
+                const resolvedBar = document.createElement('div');
+                resolvedBar.className = 'bar';
+                const resolvedPercentage = total > 0 ? (resolved / total) * 100 : 0;
+                resolvedBar.style.backgroundColor = mainColor + '90';
+                resolvedBar.textContent = `${resolved} Resolved`;
+
+                barCluster.appendChild(totalBar);
+                barCluster.appendChild(resolvedBar);
+                row.appendChild(barCluster);
+                graphContainer.appendChild(row);
+
+                setTimeout(() => {
+                    resolvedBar.style.width = `${resolvedPercentage}%`;
+                }, 100);
+            });
+
+            dom.results.display.appendChild(graphContainer);
+        }
+
+        async function startDocxExport() {
+            const originalControls = dom.results.exportControls;
+            
+            const progressContainer = document.createElement('div');
+            progressContainer.className = 'flex items-center gap-2';
+            progressContainer.innerHTML = `<div class="loading-spinner"></div><span id="docx-status-text">Initializing...</span><span id="docx-export-timer" class="font-mono font-bold ml-2">0.0s</span>`;
+            
+            originalControls.classList.add('hidden');
+            originalControls.parentNode.insertBefore(progressContainer, originalControls);
+            
+            const startTime = Date.now();
+            const timerElement = document.getElementById('docx-export-timer');
+            const statusElement = document.getElementById('docx-status-text');
+            const timerInterval = setInterval(() => {
+                timerElement.textContent = `${((Date.now() - startTime) / 1000).toFixed(1)}s`;
+            }, 100);
+
+            try {
+                statusElement.textContent = 'Processing content...';
+                await saveAsDocx();
+            } catch (error) {
+                logMessage(`DOCX export failed: ${error.message}`, 'error');
+                showAlert(`DOCX export failed: ${error.message}`, 'error');
+            } finally {
+                clearInterval(timerInterval);
+                if (progressContainer.parentNode) {
+                    progressContainer.parentNode.removeChild(progressContainer);
+                }
+                originalControls.classList.remove('hidden');
+            }
+        }
+        
+        async function saveAsDocx() {
+            const { Packer, Document, Paragraph, TextRun, HeadingLevel, ImageRun } = docx;
+            const reportContainer = dom.results.display;
+            const children = [];
+            const docxFont = dom.results.fontSelect.value.split(',')[0].replace(/'/g, '');
+            logMessage(`Using font: ${docxFont} for DOCX export.`, 'info');
+
+            const processTextRun = (text) => new TextRun({ text, font: docxFont });
+            const processBoldTextRun = (text, size) => new TextRun({ text, bold: true, size, font: docxFont });
+
+            Array.from(reportContainer.childNodes).forEach(node => {
+                if (node.id === 'stats-graph-for-export') return;
+                switch (node.nodeName) {
+                    case 'H1': children.push(new Paragraph({ children: [processBoldTextRun(node.textContent.trim(), 32)], heading: HeadingLevel.HEADING_1, spacing: { after: 240 } })); break;
+                    case 'H2': children.push(new Paragraph({ children: [processBoldTextRun(node.textContent.trim(), 28)], heading: HeadingLevel.HEADING_2, spacing: { after: 200 } })); break;
+                    case 'H3': children.push(new Paragraph({ children: [processBoldTextRun(node.textContent.trim(), 24)], heading: HeadingLevel.HEADING_3, spacing: { after: 160 } })); break;
+                    case 'P': if (node.textContent.trim()) children.push(new Paragraph({ children: [processTextRun(node.textContent.trim())] })); break;
+                    case 'UL': case 'OL':
+                        Array.from(node.children).forEach(li => {
+                            if (li.nodeName === 'LI') {
+                                const listText = li.textContent.replace(/\s+/g, ' ').trim();
+                                if(listText) children.push(new Paragraph({ children: [processTextRun(`• ${listText}`)], indent: { left: 720 }, spacing: { after: 120 } }));
+                            }
+                        });
+                        break;
+                }
+            });
+            
+            const graphElement = document.getElementById('stats-graph-for-export');
+            if (dom.analysis.graphCheckbox.checked && graphElement) {
+                children.push(new Paragraph({ text: "", spacing: { before: 400 } }));
+                const reportDisplay = dom.results.display;
+                const originalMaxHeight = reportDisplay.style.maxHeight;
+                const originalOverflow = reportDisplay.style.overflowY;
+
+                try {
+                    logMessage("Preparing graph for full-height capture...", 'info');
+                    reportDisplay.style.maxHeight = 'none';
+                    reportDisplay.style.overflowY = 'visible';
+
+                    // Force layout recalculation and wait for any animations to complete
+                    await new Promise(resolve => {
+                        requestAnimationFrame(() => {
+                            requestAnimationFrame(resolve);
+                        });
+                    });
+
+                    // Get the actual dimensions of the graph element
+                    const rect = graphElement.getBoundingClientRect();
+                    
+                    // Get the scroll dimensions which include any overflowing content
+                    const scrollWidth = graphElement.scrollWidth;
+                    const scrollHeight = graphElement.scrollHeight;
+                    
+                    // Use the larger of the two measurements to ensure we capture everything
+                    const captureWidth = Math.max(rect.width, scrollWidth);
+                    const captureHeight = Math.max(rect.height, scrollHeight);
+                    
+                    // Add generous padding to ensure nothing gets cut off
+                    const paddingWidth = Math.ceil(captureWidth * 0.05); // 5% padding
+                    const paddingHeight = Math.ceil(captureHeight * 0.1); // 10% padding for height
+                    
+                    const finalWidth = Math.round(captureWidth + paddingWidth);
+                    const finalHeight = Math.round(captureHeight + paddingHeight);
+
+                    if (finalWidth === 0 || finalHeight === 0) {
+                        throw new Error("Graph has zero dimensions.");
+                    }
+                    
+                    logMessage(`Capturing graph image at ${finalWidth}x${finalHeight}px (original: ${Math.round(rect.width)}x${Math.round(rect.height)}px).`, 'info');
+
+                    // Ensure the element is fully visible and styled correctly before capture
+                    const originalPosition = graphElement.style.position;
+                    const originalTop = graphElement.style.top;
+                    const originalLeft = graphElement.style.left;
+                    
+                    // Temporarily ensure the element is in a good position for capture
+                    graphElement.style.position = 'relative';
+                    graphElement.style.top = '0';
+                    graphElement.style.left = '0';
+
+                    const dataUrl = await toPng(graphElement, { 
+                        backgroundColor: '#ffffff',
+                        width: finalWidth,
+                        height: finalHeight,
+                        style: {
+                            // Ensure all content is visible
+                            overflow: 'visible',
+                            maxHeight: 'none',
+                            height: 'auto'
+                        },
+                        // Ensure fonts are properly embedded
+                        embedFonts: true,
+                        // Use higher quality settings
+                        quality: 1.0,
+                        // Add extra time for rendering
+                        delay: 100
+                    });
+
+                    // Restore original positioning
+                    graphElement.style.position = originalPosition;
+                    graphElement.style.top = originalTop;
+                    graphElement.style.left = originalLeft;
+
+                    const imageBuffer = await (await fetch(dataUrl)).arrayBuffer();
+                    
+                    // Calculate aspect ratio based on final dimensions
+                    const aspectRatio = finalHeight / finalWidth;
+                    const displayWidthPx = 600;
+                    const displayHeightPx = Math.round(displayWidthPx * aspectRatio);
+                    
+                    const imageRun = new ImageRun({
+                        data: imageBuffer,
+                        transformation: { width: displayWidthPx, height: displayHeightPx },
+                    });
+                    
+                    children.push(new Paragraph({ children: [imageRun] }));
+                    logMessage("Graph image successfully prepared for DOCX.", "success");
+
+                } catch (err) {
+                    logMessage(`Could not export graph to DOCX: ${err.message}`, "error");
+                    showAlert(`Graph export failed: ${err.message}`, 'error');
+                    console.error("Graph export error:", err);
+                    children.push(new Paragraph({
+                        children: [new TextRun({ text: "[Graph could not be rendered. Please refer to web version.]", italics: true, color: "FF0000", font: docxFont })]
+                    }));
+                } finally {
+                    reportDisplay.style.maxHeight = originalMaxHeight;
+                    reportDisplay.style.overflowY = originalOverflow;
+                    logMessage("Restored report view styles.", "info");
+                }
+            }
+
+            const doc = new Document({ sections: [{ properties: {}, children }] });
+            const blob = await Packer.toBlob(doc);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `whatsapp_analysis_report_${new Date().toISOString().split('T')[0]}.docx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            showAlert('DOCX report exported successfully!', 'success');
+            logMessage('DOCX report exported successfully.', 'success');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSession(); loadPrompts();
+            
+            function setupDropdown(button, dropdown) { button.addEventListener('click', (event) => { event.stopPropagation(); dropdown.classList.toggle('hidden'); }); }
+            setupDropdown(dom.chat.parserModelBtn, dom.chat.parserModelDropdown);
+            setupDropdown(dom.analysis.modelBtn, dom.analysis.modelDropdown);
+            
+            document.addEventListener('click', () => { dom.chat.parserModelDropdown.classList.add('hidden'); dom.analysis.modelDropdown.classList.add('hidden'); });
+            
+            dom.tabs.setup.addEventListener('click', () => switchTab('setup'));
+            dom.tabs.analysis.addEventListener('click', () => switchTab('analysis'));
+            dom.tabs.results.addEventListener('click', () => switchTab('results'));
+            dom.apiKey.toggleBtn.addEventListener('click', () => { const isPassword = dom.apiKey.input.type === 'password'; dom.apiKey.input.type = isPassword ? 'text' : 'password'; dom.apiKey.toggleBtn.querySelector('i').className = `fas fa-eye${isPassword ? '-slash' : ''}`; });
+            
+            dom.apiKey.saveBtn.addEventListener('click', async () => {
+                const key = dom.apiKey.input.value.trim();
+                if (!key) { showAlert('API Key cannot be empty.', 'error'); return; }
+                dom.apiKey.saveBtn.disabled = true;
+                dom.apiKey.saveBtn.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>Validating...`;
+                try {
+                    state.apiKey = key;
+                    state.genAI = new GoogleGenerativeAI(key);
+                    await fetchDynamicModels();
+                    showAlert('API Key validated and models fetched!', 'success');
+                    saveSession();
+                } catch (error) { state.genAI = null; } 
+                finally {
+                    dom.apiKey.saveBtn.disabled = false;
+                    dom.apiKey.saveBtn.innerHTML = `<i class="fas fa-save mr-2"></i>Save & Fetch Models`;
+                }
+            });
+
+            dom.chat.fileUpload.addEventListener('click', () => dom.chat.fileInput.click());
+            dom.chat.fileInput.addEventListener('change', e => { if (e.target.files.length > 0) handleFileUpload(e.target.files[0]); });
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dom.chat.fileUpload.addEventListener(eventName, e => {
+                    e.preventDefault(); e.stopPropagation();
+                    if (eventName === 'dragenter' || eventName === 'dragover') dom.chat.fileUpload.classList.add('dragover');
+                    else dom.chat.fileUpload.classList.remove('dragover');
+                    if (eventName === 'drop' && e.dataTransfer.files.length > 0) handleFileUpload(e.dataTransfer.files[0]);
+                });
+            });
+
+            dom.results.saveBtn.addEventListener('click', () => {
+                const format = dom.results.exportFormat.value;
+                if (format === 'docx') { 
+                    startDocxExport(); 
+                } else { 
+                    const content = format === 'html' ? `<!DOCTYPE html><html><head><title>Chat Report</title><style>body{font-family:${dom.results.fontSelect.value};} h1{font-weight:bold;font-size:1.5rem;} h2{font-weight:bold;font-size:1.25rem;} h3{font-weight:bold;font-size:1.1rem;}</style></head><body>${dom.results.display.innerHTML}</body></html>` : dom.results.display.textContent; 
+                    const blob = new Blob([content], { type: format === 'html' ? 'text/html' : 'text/plain' }); 
+                    const url = URL.createObjectURL(blob); 
+                    const a = document.createElement('a'); 
+                    a.href = url; 
+                    a.download = `analysis_report.${format}`; 
+                    a.click(); 
+                    URL.revokeObjectURL(url); 
+                }
+            });
+
+            dom.results.fontSelect.addEventListener('change', (e) => {
+                dom.results.display.style.fontFamily = e.target.value;
+            });
+            
+            function saveCurrentPrompt() {
+                logMessage('Saving prompt...', 'info');
+                const name = dom.prompts.name.value.trim();
+                if (!name) { showAlert('Prompt name is required.', 'error'); return; }
+                const originalPrompt = state.prompts.find(p => p.id === state.selectedPromptId);
+                const isNameChanged = originalPrompt && originalPrompt.name !== name;
+                
+                const promptData = { 
+                    id: (isNameChanged || !state.selectedPromptId) ? `prompt-${Date.now()}` : state.selectedPromptId,
+                    name, 
+                    model: dom.analysis.modelBtn.getAttribute('data-model-name'), 
+                    language: dom.prompts.language.value, 
+                    baseInstructions: dom.prompts.baseInstructions.value, 
+                    userQuery: dom.prompts.userQuery.value,
+                    lastModified: new Date().toISOString()
+                };
+
+                if (isNameChanged || !state.selectedPromptId) {
+                    state.prompts.push(promptData);
+                    logMessage(`Prompt '${name}' created as a new entry.`, 'success');
+                } else {
+                    const existingIndex = state.prompts.findIndex(p => p.id === promptData.id);
+                    state.prompts[existingIndex] = promptData;
+                    logMessage(`Prompt '${name}' updated.`, 'success');
+                }
+                
+                state.selectedPromptId = promptData.id;
+                savePrompts(); 
+                renderPrompts();
+            }
+            dom.prompts.saveBtn.addEventListener('click', saveCurrentPrompt);
+            
+            dom.apiKey.tierSelect.addEventListener('change', saveSession); dom.chat.parseBtn.addEventListener('click', handleParsePersons); dom.chat.stopParseBtn.addEventListener('click', () => { state.isParsing = false; }); dom.teams.assignCustomerBtn.addEventListener('click', () => { state.selectedPersons.forEach(p => { state.supportTeam = state.supportTeam.filter(sp => sp !== p); if (!state.customerTeam.includes(p)) state.customerTeam.push(p); }); state.selectedPersons.clear(); renderPersons(); saveSession(); logMessage('Assigned to Customer.', 'info'); }); dom.teams.assignSupportBtn.addEventListener('click', () => { state.selectedPersons.forEach(p => { state.customerTeam = state.customerTeam.filter(cp => cp !== p); if (!state.supportTeam.includes(p)) state.supportTeam.push(p); }); state.selectedPersons.clear(); renderPersons(); saveSession(); logMessage('Assigned to IT Support.', 'info'); }); dom.teams.unassignBtn.addEventListener('click', () => { state.selectedPersons.forEach(p => { state.customerTeam = state.customerTeam.filter(cp => cp !== p); state.supportTeam = state.supportTeam.filter(sp => sp !== p); }); state.selectedPersons.clear(); renderPersons(); saveSession(); logMessage('Unassigned members.', 'info'); }); dom.prompts.addBtn.addEventListener('click', () => { logMessage('Adding a new prompt.', 'info'); state.selectedPromptId = null; dom.prompts.name.value = 'New Prompt'; dom.prompts.language.value = 'English'; dom.prompts.baseInstructions.value = ''; dom.prompts.userQuery.value = ''; dom.prompts.deleteBtn.disabled = true; dom.prompts.name.focus(); }); dom.prompts.deleteBtn.addEventListener('click', () => { if (!state.selectedPromptId || state.selectedPromptId === 'default-prompt') return; const deletedName = state.prompts.find(p=>p.id === state.selectedPromptId).name; state.prompts = state.prompts.filter(p => p.id !== state.selectedPromptId); state.selectedPromptId = null; savePrompts(); renderPrompts(); if (state.prompts.length > 0) selectPrompt(state.prompts[0].id); else { dom.prompts.name.value = ''; dom.prompts.baseInstructions.value = ''; dom.prompts.userQuery.value = ''; dom.prompts.deleteBtn.disabled = true; } showAlert(`Prompt '${deletedName}' deleted.`, 'success'); logMessage(`Prompt '${deletedName}' deleted.`, 'info'); }); dom.prompts.importBtn.addEventListener('click', () => dom.prompts.importFile.click()); dom.prompts.importFile.addEventListener('change', e => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = re => { try { const importedPrompts = JSON.parse(re.target.result); if (Array.isArray(importedPrompts) && importedPrompts.every(p => p.id && p.name)) { state.prompts = importedPrompts; savePrompts(); renderPrompts(); showAlert('Prompts imported successfully!', 'success'); logMessage('Prompts imported.', 'success'); } else { showAlert('Invalid prompt file format.', 'error'); } } catch (err) { showAlert('Failed to parse prompt file.', 'error'); } }; reader.readAsText(file); }); dom.prompts.exportBtn.addEventListener('click', () => { const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state.prompts, null, 2)); const downloadAnchorNode = document.createElement('a'); downloadAnchorNode.setAttribute("href", dataStr); downloadAnchorNode.setAttribute("download", "prompts.json"); document.body.appendChild(downloadAnchorNode); downloadAnchorNode.click(); downloadAnchorNode.remove(); showAlert('Prompts exported.', 'success'); logMessage('Prompts exported.', 'info'); }); 
+            dom.analysis.runBtn.addEventListener('click', handleRunAnalysis); 
+            dom.analysis.stopBtn.addEventListener('click', () => { 
+                if (state.abortController) {
+                    state.abortController.abort();
+                }
+            }); 
+            dom.results.copyBtn.addEventListener('click', () => { navigator.clipboard.writeText(dom.results.display.textContent).then(() => showAlert('Results copied to clipboard.', 'success')).catch(err => showAlert('Failed to copy.', 'error')); }); if (dom.apiKey.input.value) dom.apiKey.saveBtn.click(); if(state.prompts.length > 0) selectPrompt(state.selectedPromptId || state.prompts[0].id);
+        });
+    </script>
+</body>
+</html>
