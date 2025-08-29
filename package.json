@@ -1,0 +1,31 @@
+{
+  "name": "smart-passport-ocr",
+  "version": "1.0.0",
+  "description": "Smart Passport OCR with Character-Level Analysis",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "node server/index.js",
+    "start": "node server/index.js",
+    "build": "cd client && npm run build",
+    "setup": "node scripts/setup.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "multer": "^1.4.5-lts.1",
+    "adm-zip": "^0.5.10",
+    "sqlite3": "^5.1.6",
+    "fs-extra": "^11.1.1",
+    "axios": "^1.6.0",
+    "sharp": "^0.32.6",
+    "uuid": "^9.0.1",
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
