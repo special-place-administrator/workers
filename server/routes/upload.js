@@ -25,11 +25,12 @@ const upload = multer({
     fileSize: 100 * 1024 * 1024 // 100MB limit
   },
   fileFilter: (req, file, cb) => {
-    // Accept ZIP files and common image formats
+    // Accept ZIP files, common image formats, and PDFs
     const allowedMimes = [
       'application/zip',
       'application/x-zip-compressed',
       'application/x-zip',
+      'application/pdf',
       'image/jpeg',
       'image/jpg',
       'image/png',
@@ -37,18 +38,18 @@ const upload = multer({
       'image/tiff',
       'image/tif'
     ]
-    
+
     if (allowedMimes.includes(file.mimetype)) {
       cb(null, true)
     } else {
       // Check file extension as fallback
       const ext = path.extname(file.originalname).toLowerCase()
-      const validExtensions = ['.zip', '.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif']
-      
+      const validExtensions = ['.zip', '.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.pdf']
+
       if (validExtensions.includes(ext)) {
         cb(null, true)
       } else {
-        cb(new Error('Invalid file type. Only ZIP files and images are allowed.'))
+        cb(new Error('Invalid file type. Only ZIP, image, or PDF files are allowed.'))
       }
     }
   }

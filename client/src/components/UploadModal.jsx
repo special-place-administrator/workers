@@ -63,6 +63,11 @@ const UploadModal = ({ isOpen, onClose, activeJob, onUploadComplete }) => {
 
       return fileInfo
     })
+    // Alert if any files were rejected due to unsupported type
+    const invalidFiles = processedFiles.filter(f => f.status === 'invalid' && f.reason === 'Unsupported file type')
+    if (invalidFiles.length > 0) {
+      alert(`Unsupported file type: ${invalidFiles.map(f => f.name).join(', ')}`)
+    }
 
     setSelectedFiles(processedFiles)
   }
@@ -79,9 +84,10 @@ const UploadModal = ({ isOpen, onClose, activeJob, onUploadComplete }) => {
       'application/zip',
       'application/x-zip-compressed',
       'application/x-zip',
+      'application/pdf',
       // Image files
       'image/jpeg',
-      'image/jpg', 
+      'image/jpg',
       'image/png',
       'image/bmp',
       'image/tiff',
@@ -91,7 +97,7 @@ const UploadModal = ({ isOpen, onClose, activeJob, onUploadComplete }) => {
     if (!validTypes.includes(file.type)) {
       // Additional check for files without proper MIME type
       const ext = file.name.toLowerCase().split('.').pop()
-      const validExtensions = ['zip', 'jpg', 'jpeg', 'png', 'bmp', 'tiff', 'tif']
+      const validExtensions = ['zip', 'jpg', 'jpeg', 'png', 'bmp', 'tiff', 'tif', 'pdf']
       
       if (!validExtensions.includes(ext)) {
         return { valid: false, reason: 'Unsupported file type' }
@@ -334,11 +340,11 @@ const UploadModal = ({ isOpen, onClose, activeJob, onUploadComplete }) => {
                 onDrop={handleDrop}
                 onClick={() => !uploading && activeJob && fileInputRef.current?.click()}
               >
-                <input
+              <input
                   ref={fileInputRef}
                   type="file"
                   className="hidden"
-                  accept=".zip,.jpg,.jpeg,.png,.bmp,.tiff,.tif"
+                  accept=".zip,.jpg,.jpeg,.png,.bmp,.tiff,.tif,.pdf"
                   onChange={handleFileSelect}
                   disabled={uploading || !activeJob}
                   multiple
@@ -451,7 +457,7 @@ const UploadModal = ({ isOpen, onClose, activeJob, onUploadComplete }) => {
                   <li>• <strong>ZIP Processing:</strong> Extracts only valid images, ignores other files</li>
                   <li>• <strong>Flexible Dimensions:</strong> Handles cropped passport number sections</li>
                   <li>• <strong>Smart Validation:</strong> Configurable limits via settings button</li>
-                  <li>• <strong>Multiple Formats:</strong> JPEG, PNG, BMP, TIFF support</li>
+                  <li>• <strong>Multiple Formats:</strong> JPEG, PNG, BMP, TIFF, PDF support</li>
                 </ul>
               </div>
             )}
