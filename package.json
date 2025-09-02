@@ -1,31 +1,48 @@
 {
-  "name": "smart-passport-ocr",
+  "name": "enterprise-ocr-system",
   "version": "1.0.0",
-  "description": "Smart Passport OCR with Character-Level Analysis",
-  "type": "module",
-  "main": "server/index.js",
+  "main": "dist/api.js",
   "scripts": {
-    "dev": "node server/index.js",
-    "start": "node server/index.js",
-    "build": "cd client && npm run build",
-    "setup": "node scripts/setup.js"
+    "dev": "tsx watch src/api.ts",
+    "dev:workers": "tsx watch src/workers.ts",
+    "build": "tsc",
+    "start": "pm2 start ecosystem.config.cjs --env production",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "db:migrate": "prisma migrate dev",
+    "db:generate": "prisma generate",
+    "db:seed": "prisma db seed",
+    "db:reset": "prisma migrate reset --force",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "cors": "^2.8.5",
-    "multer": "^1.4.5-lts.1",
-    "adm-zip": "^0.5.10",
-    "sqlite3": "^5.1.6",
-    "fs-extra": "^11.1.1",
-    "axios": "^1.6.0",
+    "@fastify/cors": "^10.0.0",
+    "@fastify/jwt": "^8.0.0",
+    "@fastify/swagger": "^8.0.0",
+    "@prisma/client": "^5.7.0",
+    "bcrypt": "^5.1.1",
+    "bullmq": "^5.4.7",
+    "dotenv": "^16.4.5",
+    "fastify": "^5.0.0",
+    "ioredis": "^5.3.2",
+    "minio": "^7.1.0",
     "sharp": "^0.32.6",
-    "uuid": "^9.0.1",
-    "ws": "^8.14.2"
+    "zod": "^3.22.4"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "@types/jest": "^29.5.11",
+    "@types/node": "^22.7.4",
+    "eslint": "^8.56.0",
+    "jest": "^29.7.0",
+    "prisma": "^5.7.0",
+    "ts-jest": "^29.1.1",
+    "tsx": "^4.7.2",
+    "typescript": "^5.3.3"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22"
   }
 }

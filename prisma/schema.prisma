@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  role      String   @default("user")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  documents Document[]
+  jobs      Job[]
+}
+
+model Document {
+  id           String   @id @default(cuid())
+  filename     String
+  originalName String
+  mimeType     String
+  fileSize     Int
+  storageUrl   String
+  status       String   @default("pending")
+  ocrText      String?
+  confidence   Float?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+  jobs   Job[]
+}
+
+model Job {
+  id          String    @id @default(cuid())
+  type        String
+  status      String    @default("pending")
+  priority    Int       @default(0)
+  progress    Int       @default(0)
+  data        Json?
+  result      Json?
+  error       String?
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  createdAt   DateTime  @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  userId     String
+  documentId String?
+
+  user     User      @relation(fields: [userId], references: [id])
+  document Document? @relation(fields: [documentId], references: [id])
+}
+
+model Setting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value String
+  type  String @default("string")
+}
